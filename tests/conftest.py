@@ -11,7 +11,7 @@ load_dotenv()
 # Database configuration
 DB_CONFIG = {
     'host': 'localhost',
-    'port': os.getenv("MYSQL_PORT", 3307),
+    'port': int(os.getenv("MYSQL_PORT", 3307)),
     'user': os.getenv('MYSQL_USER', 'biomarker_user'),
     'password': os.getenv('MYSQL_PASSWORD', 'biomarker_pass'),
     'db': os.getenv('MYSQL_DATABASE', 'longevity'),

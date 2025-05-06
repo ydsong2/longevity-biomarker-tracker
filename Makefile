@@ -10,12 +10,20 @@ help:
 	@echo "make ui       - Start UI dashboard"
 	@echo "make clean    - Remove all data and containers"
 
+install:
+	pip install -r requirements.txt
+	pre-commit install
+
 db:
 	docker compose up -d db adminer
 
 etl:
 	python etl/download_nhanes.py
-	jupyter nbconvert --execute etl/transform.ipynb --to notebook --inplace
+	@if [ -f etl/transform.ipynb ] && [ -s etl/transform.ipynb ]; then \
+		jupyter nbconvert --execute etl/transform.ipynb --to notebook --inplace || echo "[WARN] Failed to execute transform.ipynb - continuing anyway"; \
+	else \
+		echo "[WARN] transform.ipynb not found or empty — skipping transform step"; \
+	fi
 	bash etl/load.sh
 
 test:

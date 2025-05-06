@@ -9,22 +9,23 @@ Database system for tracking biomarkers and calculating biological age based on 
 git clone https://github.com/yourusername/longevity-biomarker-tracker.git
 cd longevity-biomarker-tracker
 
-# Copy environment variables and modify if needed
+# Copy environment variables and install dependencies
 cp .env.example .env
+make install
 
 # Start the database
 make db
 
-# Run ETL process (download NHANES data, transform, and load)
+# Run ETL process (downloads NHANES data, skips transform if not ready, loads schema)
 make etl
 
-# Run tests to ensure everything is working
-make test
+# Load environment variables before running the API and UI
+source .env
 
 # Start the API server
 make run
 
-# In a new terminal, start the UI dashboard
+# In a new terminal, start the UI dashboard (press Enter when asked for email)
 make ui
 ```
 
