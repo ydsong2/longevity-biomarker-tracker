@@ -26,3 +26,15 @@ make run
 
 # In a new terminal, start the UI dashboard
 make ui
+```
+
+## Database Schema Updates
+
+The initial database schema is loaded automatically when the database container is first created. For subsequent schema changes:
+
+1. Update the `sql/schema.sql` file
+2. Run the following command to apply changes:
+   ```bash
+   docker compose exec db mysql -u biomarker_user -pbiomarker_pass longevity < sql/schema.sql
+   ```
+3. Or use this shortcut ```make db-reset```

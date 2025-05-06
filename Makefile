@@ -22,7 +22,7 @@ test:
 	pytest tests/
 
 run:
-	cd src/api && uvicorn main:app --reload --host $(API_HOST) --port $(API_PORT)
+	cd src/api && uvicorn main:app --reload --host $(APP_API_HOST) --port $(APP_API_PORT)
 
 ui:
 	cd src/ui && streamlit run app.py
@@ -30,3 +30,6 @@ ui:
 clean:
 	docker compose down -v
 	rm -rf data/raw/* data/clean/*
+
+db-reset:
+	docker compose exec db mysql -u$(MYSQL_USER) -p$(MYSQL_PASSWORD) $(MYSQL_DATABASE) < sql/schema.sql
