@@ -1,12 +1,10 @@
-"""
-NHANES Data Downloader
+"""NHANES Data Downloader.
 
 This script downloads NHANES data files needed for the Longevity Biomarker
 Tracking System. It gets the 2017-2018 cycle files for demographics and the
 nine biomarkers needed for the Phenotypic Age calculation.
 """
 
-import os
 import urllib.request
 import ssl
 from pathlib import Path
@@ -21,7 +19,7 @@ urls = {
     "BIOPRO_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/BIOPRO_J.XPT",
     "GLU_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/GLU_J.XPT",
     "HSCRP_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/HSCRP_J.XPT",
-    "CBC_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/CBC_J.XPT"
+    "CBC_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/CBC_J.XPT",
 }
 
 
@@ -35,7 +33,7 @@ def download_file(url, filename):
 
         print(f"Downloading {filename}...")
         with urllib.request.urlopen(url, context=ctx) as response:
-            with open(filename, 'wb') as out_file:
+            with open(filename, "wb") as out_file:
                 out_file.write(response.read())
         print(f"Downloaded {filename} successfully.")
     except Exception as e:

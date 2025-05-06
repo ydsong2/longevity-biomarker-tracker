@@ -12,9 +12,11 @@ set +a
 echo "Starting data load process..."
 
 # Check if CSVs exist
-if [ ! -d "data/clean" ] || [ ! -f "data/clean/users.csv" ]; then
-    echo "Error: Clean CSV files not found. Run transform.ipynb first."
-    exit 1
+
+# Graceful-out if we’re still prototyping
+if ! ls data/clean/*.csv >/dev/null 2>&1; then
+    echo "[WARN] Skipping MySQL LOAD – clean/*.csv not generated yet."
+    exit 0
 fi
 
 # Load Users

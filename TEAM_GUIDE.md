@@ -15,7 +15,7 @@ Welcome to the codebase!  This document tells you **who owns what, what each fol
 | **Analytics / UI Lead (@analytics-lead)** | • Build interactive dashboard in Streamlit<br>• Deliver simple charts & tables | `/src/ui/`, `/src/analytics/`                        |
 
 > **Branch etiquette**
-> *One feature = one branch*.  Open a PR, request review from whoever’s code you touch plus one extra teammate.  CI must be green before merge.
+> *One feature = one branch*.  Open a PR, request review from whoever’s code you touch.  CI must be green before merge.
 
 ---
 

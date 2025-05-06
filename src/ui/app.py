@@ -13,21 +13,23 @@ API_URL = os.getenv("APP_API_URL", "http://localhost:8000")
 
 # Set page title
 st.set_page_config(
-    page_title="Longevity Biomarker Dashboard",
-    page_icon="🧬",
-    layout="wide"
+    page_title="Longevity Biomarker Dashboard", page_icon="🧬", layout="wide"
 )
 
 st.title("🧬 Longevity Biomarker Dashboard")
 
 # Add sidebar
 st.sidebar.header("Navigation")
-page = st.sidebar.radio("Select Page", ["Home", "User Profile", "Biomarkers", "Biological Age"])
+page = st.sidebar.radio(
+    "Select Page", ["Home", "User Profile", "Biomarkers", "Biological Age"]
+)
 
 # Home page content
 if page == "Home":
     st.header("Welcome to the Longevity Biomarker Tracker")
-    st.write("This dashboard allows you to explore biological age calculations and biomarker data.")
+    st.write(
+        "This dashboard allows you to explore biological age calculations and biomarker data."
+    )
 
     # Check API connection
     try:

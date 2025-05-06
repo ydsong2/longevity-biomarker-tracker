@@ -5,28 +5,18 @@ Database system for tracking biomarkers and calculating biological age based on 
 ## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/longevity-biomarker-tracker.git
-cd longevity-biomarker-tracker
+### First-time setup (Mac/Linux)
 
-# Copy environment variables and install dependencies
+```bash
+git clone … && cd longevity-biomarker-tracker
 cp .env.example .env
-make install
+make install          # python deps + pre-commit
+make db               # starts MySQL + Adminer on :3307
+source .env           # export APP_API_* vars  ← **don’t forget**
+make run              # FastAPI on :8000
+make ui               # Do this in a new terminal.  Streamlit on :8501 (hit Enter at e-mail prompt)
+# ETL is optional until the transform notebook is finished
 
-# Start the database
-make db
-
-# Run ETL process (downloads NHANES data, skips transform if not ready, loads schema)
-make etl
-
-# Load environment variables before running the API and UI
-source .env
-
-# Start the API server
-make run
-
-# In a new terminal, start the UI dashboard (press Enter when asked for email)
-make ui
 ```
 
 ## Database Schema Updates
@@ -39,3 +29,16 @@ The initial database schema is loaded automatically when the database container 
    docker compose exec db mysql -u biomarker_user -pbiomarker_pass longevity < sql/schema.sql
    ```
 3. Or use this shortcut ```make db-reset```
+
+## Development Workflow
+
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality and consistency. To set up:
+
+```bash
+# Install pre-commit
+make install  # or manually: pip install pre-commit
+
+# Install the git hooks
+pre-commit install
