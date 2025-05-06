@@ -1,0 +1,1093 @@
+==================================================
+  LONGEVITY BIOMARKER TRACKER CODEBASE SNAPSHOT   
+  Created on: Tue May  6 17:44:07 CDT 2025                             
+==================================================
+
+PROJECT STRUCTURE:
+
+.
+./data
+./data/clean
+./data/raw
+./docs
+./etl
+./notebooks
+./sql
+./src
+./src/analytics
+./src/api
+./src/ui
+./tests
+./tests/__pycache__
+
+==================================================
+FILE: ./sql/schema.sql
+==================================================
+
+-- Longevity Biomarker Tracker Schema
+-- Based on the ER model from the project documentation
+
+-- Drop tables if they exist (in reverse order of dependencies)
+DROP TABLE IF EXISTS BiologicalAgeResult;
+DROP TABLE IF EXISTS ModelUsesBiomarker;
+DROP TABLE IF EXISTS BiologicalAgeModel;
+DROP TABLE IF EXISTS ReferenceRange;
+DROP TABLE IF EXISTS Measurement;
+DROP TABLE IF EXISTS Biomarker;
+DROP TABLE IF EXISTS MeasurementSession;
+DROP TABLE IF EXISTS User;
+
+-- Create User table
+CREATE TABLE User (
+    UserID INT AUTO_INCREMENT PRIMARY KEY,
+    SEQN INT UNIQUE,
+    BirthDate DATE,
+    Sex ENUM('M', 'F'),
+    RaceEthnicity VARCHAR(50),
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create MeasurementSession table
+CREATE TABLE MeasurementSession (
+    SessionID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT NOT NULL,
+    SessionDate DATE NOT NULL,
+    FastingStatus BOOLEAN,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (UserID) REFERENCES User(UserID),
+    UNIQUE KEY (UserID, SessionDate)
+);
+
+-- Create Biomarker table
+CREATE TABLE Biomarker (
+    BiomarkerID INT AUTO_INCREMENT PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL,
+    NHANESVarCode VARCHAR(20) UNIQUE,
+    Units VARCHAR(20) NOT NULL,
+    Description TEXT,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Measurement table
+CREATE TABLE Measurement (
+    MeasurementID INT AUTO_INCREMENT PRIMARY KEY,
+    SessionID INT NOT NULL,
+    BiomarkerID INT NOT NULL,
+    Value DECIMAL(12, 4) NOT NULL,
+    TakenAt TIMESTAMP NOT NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (SessionID) REFERENCES MeasurementSession(SessionID),
+    FOREIGN KEY (BiomarkerID) REFERENCES Biomarker(BiomarkerID),
+    UNIQUE KEY (SessionID, BiomarkerID)
+);
+
+-- Create ReferenceRange table
+CREATE TABLE ReferenceRange (
+    RangeID INT AUTO_INCREMENT PRIMARY KEY,
+    BiomarkerID INT NOT NULL,
+    RangeType ENUM('clinical', 'longevity') NOT NULL,
+    Sex ENUM('M', 'F', 'All'),
+    AgeMin INT,
+    AgeMax INT,
+    MinVal DECIMAL(12, 4),
+    MaxVal DECIMAL(12, 4),
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (BiomarkerID) REFERENCES Biomarker(BiomarkerID),
+    UNIQUE KEY (BiomarkerID, RangeType, Sex, AgeMin, AgeMax)
+);
+
+-- Create BiologicalAgeModel table
+CREATE TABLE BiologicalAgeModel (
+    ModelID INT AUTO_INCREMENT PRIMARY KEY,
+    ModelName VARCHAR(100) UNIQUE,
+    Description TEXT,
+    FormulaJSON JSON,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create ModelUsesBiomarker junction table (M:N relationship)
+CREATE TABLE ModelUsesBiomarker (
+    ModelID INT NOT NULL,
+    BiomarkerID INT NOT NULL,
+    Coefficient DECIMAL(10, 6),
+    Transform VARCHAR(50),
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (ModelID, BiomarkerID),
+    FOREIGN KEY (ModelID) REFERENCES BiologicalAgeModel(ModelID),
+    FOREIGN KEY (BiomarkerID) REFERENCES Biomarker(BiomarkerID)
+);
+
+-- Create BiologicalAgeResult table
+CREATE TABLE BiologicalAgeResult (
+    ResultID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT NOT NULL,
+    ModelID INT NOT NULL,
+    BioAgeYears DECIMAL(5, 2) NOT NULL,
+    ComputedAt TIMESTAMP NOT NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (UserID) REFERENCES User(UserID),
+    FOREIGN KEY (ModelID) REFERENCES BiologicalAgeModel(ModelID),
+    UNIQUE KEY (UserID, ModelID, ComputedAt)
+);
+
+-- Insert the nine biomarkers needed for Phenotypic Age calculation
+INSERT INTO Biomarker (Name, NHANESVarCode, Units, Description) VALUES
+('Albumin', 'LBXSAL', 'g/dL', 'Serum albumin'),
+('Alkaline Phosphatase', 'LBXSAPSI', 'U/L', 'Alkaline phosphatase'),
+('Creatinine', 'LBXSCR', 'mg/dL', 'Serum creatinine'),
+('Fasting Glucose', 'LBXGLU', 'mg/dL', 'Plasma fasting glucose'),
+('C-Reactive Protein', 'LBXHSCRP', 'mg/L', 'High-sensitivity C-reactive protein'),
+('White Blood Cell Count', 'LBXWBCSI', '10³ cells/µL', 'White blood cell count'),
+('Lymphocyte Percentage', 'LBXLYPCT', '%', 'Lymphocyte percentage'),
+('Mean Corpuscular Volume', 'LBXMCVSI', 'fL', 'Mean corpuscular volume'),
+('Red Cell Distribution Width', 'LBXRDW', '%', 'Red cell distribution width');
+
+-- Insert the Phenotypic Age model
+INSERT INTO BiologicalAgeModel (ModelName, Description, FormulaJSON) VALUES (
+    'Phenotypic Age',
+    'Morgan Levine''s Phenotypic Age clock (Levine et al., 2018)',
+    '{"formula": "141.50 + ln(-0.00553*xb)*(-26.42)", "intercept": 141.50, "multiplier": -26.42, "internal_parameter": -0.00553}'
+);
+
+-- Insert the coefficients for the Phenotypic Age model
+INSERT INTO ModelUsesBiomarker (ModelID, BiomarkerID, Coefficient, Transform) VALUES
+(1, 1, -0.0336, 'none'),       -- Albumin
+(1, 2, 0.0010, 'none'),        -- Alkaline Phosphatase
+(1, 3, 0.0095, 'none'),        -- Creatinine
+(1, 4, 0.0195, 'none'),        -- Glucose
+(1, 5, 0.0954, 'log'),         -- CRP
+(1, 6, 0.0268, 'none'),        -- WBC
+(1, 7, -0.0020, 'none'),       -- Lymphocyte %
+(1, 8, 0.0268, 'none'),        -- MCV
+(1, 9, 0.3306, 'none');        -- RDW
+
+==================================================
+FILE: ./.env.example
+==================================================
+
+# Database Configuration
+MYSQL_ROOT_PASSWORD=rootpassword
+MYSQL_DATABASE=longevity
+MYSQL_USER=biomarker_user
+MYSQL_PASSWORD=biomarker_pass
+MYSQL_PORT=3307
+
+# API Configuration
+APP_API_HOST=0.0.0.0
+APP_API_PORT=8000
+APP_API_URL=http://localhost:8000
+
+# Connection string for applications
+APP_DATABASE_URL=mysql+pymysql://biomarker_user:biomarker_pass@localhost:3307/longevity
+
+
+==================================================
+FILE: ./.github/workflows/ci.yml
+==================================================
+
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: longevity_test
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov requests fastapi uvicorn sqlalchemy pymysql python-dotenv
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Install MySQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mysql-client
+
+    - name: Initialize test database
+      run: |
+        mysql -h 127.0.0.1 -u root -prootpassword -e "CREATE DATABASE IF NOT EXISTS longevity_test;"
+        mysql -h 127.0.0.1 -u root -prootpassword longevity_test < sql/schema.sql
+        if [ -f tests/sample_dump.sql ]; then
+          mysql -h 127.0.0.1 -u root -prootpassword longevity_test < tests/sample_dump.sql
+        fi
+
+    - name: Check schema integrity
+      run: |
+        mysqldump -h 127.0.0.1 -u root -prootpassword --no-data longevity_test > tests/schema_from_db.sql
+        # Compare schema files (ignoring comments and whitespace)
+        diff -w <(grep -v "^--" sql/schema.sql | grep -v "^$") <(grep -v "^--" tests/schema_from_db.sql | grep -v "^$") || { echo "Schema files don't match!"; exit 1; }
+
+    - name: Start API server for testing
+      run: |
+        cd src/api
+        nohup python -m uvicorn main:app --host 127.0.0.1 --port 8000 > api.log 2>&1 &
+        echo $! > api.pid
+        # Give the server a moment to start
+        sleep 5
+        cd ../..  # Return to root directory
+
+    - name: Run tests
+      run: |
+        pytest tests/ --cov=src
+      env:
+        MYSQL_HOST: 127.0.0.1
+        MYSQL_USER: test_user
+        MYSQL_PASSWORD: test_password
+        MYSQL_DATABASE: longevity_test
+        API_URL: http://127.0.0.1:8000
+
+    - name: Stop API server
+      run: |
+        if [ -f src/api/api.pid ]; then
+          kill $(cat src/api/api.pid)
+          rm src/api/api.pid
+        fi
+
+==================================================
+FILE: ./.pre-commit-config.yaml
+==================================================
+
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+
+-   repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+    -   id: black
+        language_version: python3
+
+-   repo: https://github.com/pycqa/flake8
+    rev: 6.0.0
+    hooks:
+    -   id: flake8
+        additional_dependencies: [flake8-docstrings]
+
+-   repo: https://github.com/sqlfluff/sqlfluff
+    rev: 2.1.1
+    hooks:
+    -   id: sqlfluff-lint
+        args: [--dialect, mysql]
+        files: ^sql/.*\.sql$
+
+==================================================
+FILE: ./Makefile
+==================================================
+
+.PHONY: db etl test run ui clean help
+
+help:
+	@echo "Longevity Biomarker Tracker"
+	@echo ""
+	@echo "make db       - Start MySQL database"
+	@echo "make etl      - Run ETL process (download, transform, load)"
+	@echo "make test     - Run tests"
+	@echo "make run      - Start API server"
+	@echo "make ui       - Start UI dashboard"
+	@echo "make clean    - Remove all data and containers"
+
+db:
+	docker compose up -d db adminer
+
+etl:
+	python etl/download_nhanes.py
+	jupyter nbconvert --execute etl/transform.ipynb --to notebook --inplace
+	bash etl/load.sh
+
+test:
+	pytest tests/
+
+run:
+	cd src/api && uvicorn main:app --reload --host $(APP_API_HOST) --port $(APP_API_PORT)
+
+ui:
+	cd src/ui && streamlit run app.py
+
+clean:
+	docker compose down -v
+	rm -rf data/raw/* data/clean/*
+
+db-reset:
+	docker compose exec db mysql -u$(MYSQL_USER) -p$(MYSQL_PASSWORD) $(MYSQL_DATABASE) < sql/schema.sql
+
+
+==================================================
+FILE: ./README.md
+==================================================
+
+# Longevity Biomarker Tracking System
+
+Database system for tracking biomarkers and calculating biological age based on NHANES data.
+
+## Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/longevity-biomarker-tracker.git
+cd longevity-biomarker-tracker
+
+# Copy environment variables and modify if needed
+cp .env.example .env
+
+# Start the database
+make db
+
+# Run ETL process (download NHANES data, transform, and load)
+make etl
+
+# Run tests to ensure everything is working
+make test
+
+# Start the API server
+make run
+
+# In a new terminal, start the UI dashboard
+make ui
+```
+
+## Database Schema Updates
+
+The initial database schema is loaded automatically when the database container is first created. For subsequent schema changes:
+
+1. Update the `sql/schema.sql` file
+2. Run the following command to apply changes:
+   ```bash
+   docker compose exec db mysql -u biomarker_user -pbiomarker_pass longevity < sql/schema.sql
+   ```
+3. Or use this shortcut ```make db-reset```
+
+==================================================
+FILE: ./TEAM_GUIDE.md
+==================================================
+
+
+# 🧬 Longevity Biomarker Tracking System  — Team Guide
+
+Welcome to the codebase!  This document tells you **who owns what, what each folder/file is for, and the 5-minute routine to spin everything up locally.**
+
+---
+
+## 1 · Team roles & areas of ownership
+
+| Role                                      | Main goals                                                                     | Owns these paths                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| **Database Architect (@db-architect)**    | • Keep the physical schema in 3 NF<br>• Produce the ER diagram PDF/PNG         | `/sql/`,  `/docs/er_diagram.*`                       |
+| **Data Engineer (@data-engineer)**        | • Pull NHANES XPT files<br>• Clean → CSVs\n• Bulk-load into MySQL              | `/etl/`, `/data/raw/`, `/data/clean/`, `/notebooks/` |
+| **Backend Lead (@backend-lead)**          | • Turn the FastAPI stubs into real endpoints<br>• Unit-test business logic     | `/src/api/`, `/tests/`                               |
+| **Analytics / UI Lead (@analytics-lead)** | • Build interactive dashboard in Streamlit<br>• Deliver simple charts & tables | `/src/ui/`, `/src/analytics/`                        |
+
+> **Branch etiquette**
+> *One feature = one branch*.  Open a PR, request review from whoever’s code you touch plus one extra teammate.  CI must be green before merge.
+
+---
+
+## 2 · Repository tour
+
+```
+├── sql/                 ← single source-of-truth DDL (schema + seed data)
+├── etl/
+│   ├─ download_nhanes.py  ← grabs raw XPTs
+│   ├─ transform.ipynb     ← ⚠️ placeholder; clean & join data here
+│   └─ load.sh             ← LOAD DATA INFILE → MySQL
+├── data/
+│   ├─ raw/    ← large XPTs land here (git-ignored)
+│   └─ clean/  ← CSVs ready for LOAD INFILE (git-ignored)
+├── src/
+│   ├─ api/          ← FastAPI app (currently minimal stubs)
+│   ├─ analytics/    ← helper modules for stats / plots
+│   └─ ui/           ← Streamlit dashboard (placeholder “Hello”)
+├── tests/           ← PyTest suite (API + DB fixtures)
+├── docker-compose.yml  ← MySQL 8 (port 3307) + Adminer
+├── Makefile          ← one-word workflows (`make db`, `make run`, …)
+├── .env.example      ← copy → .env ; local config lives here
+├── .github/workflows/ci.yml  ← GH Actions: MySQL + API + tests
+├── .pre-commit-config.yaml   ← black, flake8, sqlfluff, etc.
+└── docs/
+    └─ er_diagram_placeholder.md
+```
+
+**Placeholders**
+
+* Anything that returns fixed/dummy JSON (FastAPI, Streamlit) is just scaffolding—replace at will.
+* `transform.ipynb` currently does nothing except have an empty code cell; build your ETL there.
+
+---
+
+## 3 · Getting started locally (≈ 5 minutes)
+
+> **Prereqs:** Docker Desktop, Python 3.11+, `pip install pre-commit`.
+
+```bash
+# 1.  Clone & enter repo
+git clone https://github.com/randaldrew/longevity-biomarker-tracker
+cd longevity-biomarker-tracker
+
+# 2.  Personal env settings
+cp .env.example .env        # adjust only if you really need to
+
+# 3.  Start database (MySQL 8 on localhost:3307) + Adminer (localhost:8080)
+make db
+
+# 4.  (Data engineer only)  Download → transform → load sample data
+make etl                    # safe to run; skips if CSVs missing
+
+# 5.  Fire up services
+make run                    # FastAPI hot-reload on http://localhost:8000
+make ui                     # Streamlit dashboard on http://localhost:8501
+
+# 6.  Sanity check tests & style
+pre-commit install          # run once
+pytest -q                   # should pass six stub tests
+```
+
+*Adminer login:*
+**System** MySQL, **Server** db (inside docker) or 127.0.0.1:3307, **User** biomarker\_user, **PW** biomarker\_pass, **DB** longevity.
+
+---
+
+## 4 · Daily workflow cheatsheet
+
+| Action                         | Command                          |
+| ------------------------------ | -------------------------------- |
+| Start DB + API + UI            | `make db && make run && make ui` |
+| Reset schema after edits       | `make db-reset`                  |
+| Download / refresh NHANES      | `make etl`                       |
+| Run all tests                  | `make test`                      |
+| Lint & format all files        | `pre-commit run --all-files`     |
+| Stop everything & wipe volumes | `make clean`                     |
+
+---
+
+### Have questions?
+
+*Open a GitHub Discussion or ping the owner of the folder you’re touching.*  Let’s build something great—happy coding!
+
+
+==================================================
+FILE: ./codebase_snapshot.sh
+==================================================
+
+#!/bin/bash
+# create_snapshot.sh - Creates a snapshot of the codebase while excluding large files
+
+OUTPUT_FILE="codebase_snapshot_$(date +%Y%m%d).txt"
+
+# Clear output file if it exists
+> "$OUTPUT_FILE"
+
+# Write header
+echo "==================================================" >> "$OUTPUT_FILE"
+echo "  LONGEVITY BIOMARKER TRACKER CODEBASE SNAPSHOT   " >> "$OUTPUT_FILE"
+echo "  Created on: $(date)                             " >> "$OUTPUT_FILE"
+echo "==================================================" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+
+# Function to write file contents to snapshot
+write_file() {
+  local file="$1"
+  echo "==================================================" >> "$OUTPUT_FILE"
+  echo "FILE: $file" >> "$OUTPUT_FILE"
+  echo "==================================================" >> "$OUTPUT_FILE"
+  echo "" >> "$OUTPUT_FILE"
+  cat "$file" >> "$OUTPUT_FILE"
+  echo "" >> "$OUTPUT_FILE"
+  echo "" >> "$OUTPUT_FILE"
+}
+
+# List of patterns to exclude
+EXCLUDE_PATTERNS=(
+  # Data files
+  "data/raw/*"
+  "data/clean/*"
+
+  # Database dumps
+  "*.sql"
+  "*.dump"
+
+  # Virtual environment
+  "venv/*"
+
+  # Build artifacts
+  "build/*"
+  "dist/*"
+  "*.egg-info/*"
+
+  # Node modules
+  "node_modules/*"
+
+  # Cache files
+  "__pycache__/*"
+  ".pytest_cache/*"
+  ".ipynb_checkpoints/*"
+
+  # Logs
+  "*.log"
+
+  # Large generated files
+  "*.csv"
+  "*.xpt"
+  "*.parquet"
+  "*.feather"
+  "*.pickle"
+
+  # IDE files
+  ".idea/*"
+  ".vscode/*"
+)
+
+# Create exclude options for find command
+EXCLUDE_OPTIONS=""
+for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+  EXCLUDE_OPTIONS="$EXCLUDE_OPTIONS -not -path \"*/$pattern\""
+done
+
+# Write summary of project structure
+echo "PROJECT STRUCTURE:" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+find . -type d -not -path "*/\.*" -not -path "*/venv*" -not -path "*/node_modules*" | sort >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+
+# Allow specific SQL files (schema only, not data)
+write_file "./sql/schema.sql"
+
+# Snapshot all code and configuration files
+# Using separate find commands instead of one big command with exclude options
+# as that can be problematic with shell expansion
+echo "Finding and processing files..."
+find . -type f \( -name "*.py" -o -name "*.ipynb" -o -name "*.md" -o -name "*.sh" -o -name "*.yml" -o -name "*.yaml" -o -name "Makefile" -o -name "Dockerfile" -o -name "docker-compose.yml" -o -name ".env.example" -o -name "*.js" -o -name "*.html" -o -name "*.css" \) \
+  -not -path "*/venv/*" \
+  -not -path "*/.git/*" \
+  -not -path "*/node_modules/*" \
+  -not -path "*/__pycache__/*" \
+  -not -path "*/.pytest_cache/*" \
+  -not -path "*/.ipynb_checkpoints/*" \
+  -not -path "*/data/raw/*" \
+  -not -path "*/data/clean/*" \
+  -not -path "*/build/*" \
+  -not -path "*/dist/*" \
+  -not -path "*/*.egg-info/*" \
+  -not -path "*/.idea/*" \
+  -not -path "*/.vscode/*" \
+  | sort | while read -r file; do
+    # Skip large files (> 100KB)
+    file_size=$(wc -c < "$file")
+    if [ "$file_size" -gt 102400 ]; then
+      echo "Skipping large file: $file ($file_size bytes)" >> "$OUTPUT_FILE"
+    else
+      # For notebooks, only include metadata and code, not outputs
+      if [[ "$file" == *.ipynb ]]; then
+        echo "==================================================" >> "$OUTPUT_FILE"
+        echo "FILE: $file (code cells only, outputs excluded)" >> "$OUTPUT_FILE"
+        echo "==================================================" >> "$OUTPUT_FILE"
+        echo "" >> "$OUTPUT_FILE"
+        jq 'del(.cells[].outputs) | del(.cells[].execution_count)' "$file" >> "$OUTPUT_FILE" 2>/dev/null || echo "Could not process notebook file (jq may not be installed)" >> "$OUTPUT_FILE"
+      else
+        write_file "$file"
+      fi
+    fi
+  done
+
+# Write file count statistics
+echo "==================================================" >> "$OUTPUT_FILE"
+echo "FILE COUNT STATISTICS:" >> "$OUTPUT_FILE"
+echo "==================================================" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+echo "Python files: $(find . -name "*.py" -not -path "*/venv/*" -not -path "*/\.*" | wc -l)" >> "$OUTPUT_FILE"
+echo "Jupyter notebooks: $(find . -name "*.ipynb" -not -path "*/venv/*" -not -path "*/\.*" -not -path "*/.ipynb_checkpoints/*" | wc -l)" >> "$OUTPUT_FILE"
+echo "Shell scripts: $(find . -name "*.sh" -not -path "*/venv/*" -not -path "*/\.*" | wc -l)" >> "$OUTPUT_FILE"
+echo "Markdown/Documentation: $(find . -name "*.md" -not -path "*/venv/*" -not -path "*/\.*" | wc -l)" >> "$OUTPUT_FILE"
+echo "YAML/Configuration: $(find . -name "*.yml" -o -name "*.yaml" -not -path "*/venv/*" -not -path "*/\.*" | wc -l)" >> "$OUTPUT_FILE"
+echo "JavaScript files: $(find . -name "*.js" -not -path "*/venv/*" -not -path "*/node_modules/*" -not -path "*/\.*" | wc -l)" >> "$OUTPUT_FILE"
+echo "HTML files: $(find . -name "*.html" -not -path "*/venv/*" -not -path "*/node_modules/*" -not -path "*/\.*" | wc -l)" >> "$OUTPUT_FILE"
+echo "CSS files: $(find . -name "*.css" -not -path "*/venv/*" -not -path "*/node_modules/*" -not -path "*/\.*" | wc -l)" >> "$OUTPUT_FILE"
+
+echo "Snapshot created: $OUTPUT_FILE"
+
+==================================================
+FILE: ./docker-compose.yml
+==================================================
+
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: longevity_db
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d
+    command: --local-infile=1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer
+    container_name: longevity_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  dbdata:
+
+
+==================================================
+FILE: ./docs/er_diagram_placeholder.md
+==================================================
+
+# Database ER Diagram
+
+The database architect should add the ER diagram to this directory
+
+==================================================
+FILE: ./etl/download_nhanes.py
+==================================================
+
+"""
+NHANES Data Downloader
+
+This script downloads NHANES data files needed for the Longevity Biomarker
+Tracking System. It gets the 2017-2018 cycle files for demographics and the
+nine biomarkers needed for the Phenotypic Age calculation.
+"""
+
+import os
+import urllib.request
+import ssl
+from pathlib import Path
+
+# Create data directories if they don't exist
+raw_dir = Path("data/raw")
+raw_dir.mkdir(parents=True, exist_ok=True)
+
+# URLs for the NHANES 2017-2018 (cycle J) XPT files we need
+urls = {
+    "DEMO_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/DEMO_J.XPT",
+    "BIOPRO_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/BIOPRO_J.XPT",
+    "GLU_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/GLU_J.XPT",
+    "HSCRP_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/HSCRP_J.XPT",
+    "CBC_J.XPT": "https://wwwn.cdc.gov/Nchs/Nhanes/2017-2018/CBC_J.XPT"
+}
+
+
+def download_file(url, filename):
+    """Download a file from a URL to the specified filename."""
+    try:
+        # Create an SSL context that doesn't verify certificates (only if needed)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        print(f"Downloading {filename}...")
+        with urllib.request.urlopen(url, context=ctx) as response:
+            with open(filename, 'wb') as out_file:
+                out_file.write(response.read())
+        print(f"Downloaded {filename} successfully.")
+    except Exception as e:
+        print(f"Error downloading {filename}: {e}")
+
+
+def main():
+    """Main function to download all required NHANES files."""
+    for filename, url in urls.items():
+        download_file(url, raw_dir / filename)
+
+    print("\nDownload complete. Files saved to data/raw/")
+
+
+if __name__ == "__main__":
+    main()
+
+==================================================
+FILE: ./etl/load.sh
+==================================================
+
+#!/bin/bash
+# ETL Load Script - Loads CSV data into MySQL
+
+# Change to project root directory
+cd "$(dirname "$0")"/..
+
+# Load environment variables
+set -a
+source .env
+set +a
+
+echo "Starting data load process..."
+
+# Check if CSVs exist
+if [ ! -d "data/clean" ] || [ ! -f "data/clean/users.csv" ]; then
+    echo "Error: Clean CSV files not found. Run transform.ipynb first."
+    exit 1
+fi
+
+# Load Users
+echo "Loading Users..."
+mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
+    LOAD DATA LOCAL INFILE 'data/clean/users.csv'
+    INTO TABLE User
+    FIELDS TERMINATED BY ','
+    ENCLOSED BY '\"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS
+    (UserID, SEQN, BirthDate, Sex, RaceEthnicity);
+"
+
+# Load Sessions
+echo "Loading MeasurementSessions..."
+mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
+    LOAD DATA LOCAL INFILE 'data/clean/sessions.csv'
+    INTO TABLE MeasurementSession
+    FIELDS TERMINATED BY ','
+    ENCLOSED BY '\"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS
+    (SessionID, UserID, SessionDate, FastingStatus);
+"
+
+# Load Measurements
+echo "Loading Measurements..."
+mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
+    LOAD DATA LOCAL INFILE 'data/clean/measurements.csv'
+    INTO TABLE Measurement
+    FIELDS TERMINATED BY ','
+    ENCLOSED BY '\"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS
+    (MeasurementID, SessionID, BiomarkerID, Value, TakenAt);
+"
+
+# Load Reference Ranges
+echo "Loading Reference Ranges..."
+mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
+    LOAD DATA LOCAL INFILE 'data/clean/reference_ranges.csv'
+    FIELDS TERMINATED BY ','
+    ENCLOSED BY '\"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS
+    (RangeID, BiomarkerID, RangeType, Sex, @AgeMin, @AgeMax, MinVal, MaxVal)
+    SET
+    AgeMin = NULLIF(@AgeMin,''),
+    AgeMax = NULLIF(@AgeMax,'');
+"
+
+echo "Data loading completed successfully!"
+
+# Create sample dump for testing
+echo "Creating sample dump for testing..."
+mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE User MeasurementSession Measurement --where="User.UserID IN (SELECT UserID FROM User ORDER BY UserID LIMIT 10)" > tests/sample_dump.sql
+
+echo "ETL process completed!"
+
+==================================================
+FILE: ./etl/transform.ipynb (code cells only, outputs excluded)
+==================================================
+
+==================================================
+FILE: ./notebooks/exploratory.ipynb (code cells only, outputs excluded)
+==================================================
+
+==================================================
+FILE: ./src/__init__.py
+==================================================
+
+
+
+==================================================
+FILE: ./src/analytics/__init__.py
+==================================================
+
+
+
+==================================================
+FILE: ./src/api/__init__.py
+==================================================
+
+
+
+==================================================
+FILE: ./src/api/main.py
+==================================================
+
+"""Main entry point for API"""
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="Longevity Biomarker API",
+    description="API for tracking biomarkers and calculating biological age"
+)
+
+@app.get("/")
+def read_root():
+    return {"message": "Longevity Biomarker API"}
+
+@app.get("/users/{user_id}")
+def read_user(user_id: int):
+    # Stub implementation for tests
+    return {"UserID": user_id, "SEQN": 10000 + user_id, "Sex": "M", "RaceEthnicity": "Sample"}
+
+@app.get("/users/{user_id}/measurements")
+def read_measurements(user_id: int):
+    # Stub implementation for tests
+    return [{"MeasurementID": 1, "BiomarkerName": "Albumin", "Value": 4.5}]
+
+@app.get("/users/{user_id}/bio-age")
+def read_bio_age(user_id: int):
+    # Stub implementation for tests
+    return {"user_id": user_id, "bio_age_years": 45.0, "model_name": "Phenotypic Age"}
+
+==================================================
+FILE: ./src/ui/__init__.py
+==================================================
+
+
+
+==================================================
+FILE: ./src/ui/app.py
+==================================================
+
+"""Placeholder app front end"""
+
+import streamlit as st
+import requests
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# API URL
+API_URL = os.getenv("APP_API_URL", "http://localhost:8000")
+
+# Set page title
+st.set_page_config(
+    page_title="Longevity Biomarker Dashboard",
+    page_icon="🧬",
+    layout="wide"
+)
+
+st.title("🧬 Longevity Biomarker Dashboard")
+
+# Add sidebar
+st.sidebar.header("Navigation")
+page = st.sidebar.radio("Select Page", ["Home", "User Profile", "Biomarkers", "Biological Age"])
+
+# Home page content
+if page == "Home":
+    st.header("Welcome to the Longevity Biomarker Tracker")
+    st.write("This dashboard allows you to explore biological age calculations and biomarker data.")
+
+    # Check API connection
+    try:
+        response = requests.get(f"{API_URL}/")
+        if response.status_code == 200:
+            st.success(f"Connected to API: {response.json()['message']}")
+        else:
+            st.error(f"API Error: Status code {response.status_code}")
+    except Exception as e:
+        st.error(f"Failed to connect to API: {e}")
+
+    st.info("Select a page from the sidebar to begin exploring data.")
+else:
+    st.info(f"The {page} page is under development. Please check back soon!")
+
+==================================================
+FILE: ./tests/conftest.py
+==================================================
+
+"""Basic test harness for database"""
+
+import pytest
+import os
+import pymysql
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Database configuration
+DB_CONFIG = {
+    'host': 'localhost',
+    'port': os.getenv("MYSQL_PORT", 3307),
+    'user': os.getenv('MYSQL_USER', 'biomarker_user'),
+    'password': os.getenv('MYSQL_PASSWORD', 'biomarker_pass'),
+    'db': os.getenv('MYSQL_DATABASE', 'longevity'),
+    'charset': 'utf8mb4',
+    'cursorclass': pymysql.cursors.DictCursor
+}
+
+@pytest.fixture
+def db_connection():
+    """Fixture to create a database connection for tests."""
+    connection = pymysql.connect(**DB_CONFIG)
+    yield connection
+    connection.close()
+
+@pytest.fixture
+def db_cursor(db_connection):
+    """Fixture to create a database cursor for tests."""
+    cursor = db_connection.cursor()
+    yield cursor
+    cursor.close()
+EOF
+
+cat > tests/test_api.py << 'EOF'
+import pytest
+import requests
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# API URL
+API_URL = os.getenv("API_URL", "http://localhost:8000")
+
+def test_api_root():
+    """Test the API root endpoint."""
+    response = requests.get(f"{API_URL}/")
+    assert response.status_code == 200
+    assert "message" in response.json()
+
+def test_get_user():
+    """Test getting a user by ID."""
+    user_id = 1  # Assuming user 1 exists in the test database
+    response = requests.get(f"{API_URL}/users/{user_id}")
+    assert response.status_code == 200
+    user = response.json()
+    assert "UserID" in user
+    assert user["UserID"] == user_id
+
+def test_get_measurements():
+    """Test getting measurements for a user."""
+    user_id = 1  # Assuming user 1 has measurements
+    response = requests.get(f"{API_URL}/users/{user_id}/measurements")
+    assert response.status_code == 200
+    measurements = response.json()
+    assert isinstance(measurements, list)
+    # If the user has measurements, check structure
+    if measurements:
+        assert "MeasurementID" in measurements[0]
+        assert "BiomarkerName" in measurements[0]
+        assert "Value" in measurements[0]
+
+def test_bio_age_calculation():
+    """Test the biological age calculation endpoint."""
+    user_id = 1  # Assuming user 1 exists
+    response = requests.get(f"{API_URL}/users/{user_id}/bio-age")
+    assert response.status_code == 200
+    bio_age = response.json()
+    assert "user_id" in bio_age
+    assert "bio_age_years" in bio_age
+    assert "model_name" in bio_age
+
+==================================================
+FILE: ./tests/test_api.py
+==================================================
+
+"""Test harness for API"""
+
+import pytest
+import requests
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# API URL
+API_URL = os.getenv("API_URL", "http://localhost:8000")
+
+def test_api_root():
+    """Test the API root endpoint."""
+    response = requests.get(f"{API_URL}/")
+    assert response.status_code == 200
+    assert "message" in response.json()
+
+def test_get_user():
+    """Test getting a user by ID."""
+    user_id = 1  # Assuming user 1 exists in the test database
+    response = requests.get(f"{API_URL}/users/{user_id}")
+    assert response.status_code == 200
+    user = response.json()
+    assert "UserID" in user
+    assert user["UserID"] == user_id
+
+def test_get_measurements():
+    """Test getting measurements for a user."""
+    user_id = 1  # Assuming user 1 has measurements
+    response = requests.get(f"{API_URL}/users/{user_id}/measurements")
+    assert response.status_code == 200
+    measurements = response.json()
+    assert isinstance(measurements, list)
+    # If the user has measurements, check structure
+    if measurements:
+        assert "MeasurementID" in measurements[0]
+        assert "BiomarkerName" in measurements[0]
+        assert "Value" in measurements[0]
+
+def test_bio_age_calculation():
+    """Test the biological age calculation endpoint."""
+    user_id = 1  # Assuming user 1 exists
+    response = requests.get(f"{API_URL}/users/{user_id}/bio-age")
+    assert response.status_code == 200
+    bio_age = response.json()
+    assert "user_id" in bio_age
+    assert "bio_age_years" in bio_age
+    assert "model_name" in bio_age
+
+==================================================
+FILE COUNT STATISTICS:
+==================================================
+
+Python files:        9
+Jupyter notebooks:        2
+Shell scripts:        2
+Markdown/Documentation:        3
+YAML/Configuration:        2
+JavaScript files:        0
+HTML files:        0
+CSS files:        0
