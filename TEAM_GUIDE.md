@@ -99,7 +99,7 @@ pytest -q                   # should pass six stub tests
 ## 5. Adminer login:
 
 *Adminer login:*
-**System** MySQL, **Server** db (inside docker) or 127.0.0.1:3306, **User** biomarker_user, **PW** biomarker_pass, **DB** longevity.
+**System** MySQL, **Server** db (inside docker) or 127.0.0.1:3307, **User** biomarker_user, **PW** biomarker_pass, **DB** longevity.
 Access Adminer at [http://localhost:8080](http://localhost:8080).
 
 ### Have questions?

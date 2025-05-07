@@ -1,0 +1,13 @@
+# Core infrastructure requires approval
+/sql/                @db-architect
+/docker-compose.yml  @db-architect
+
+# Team members own their own areas
+/etl/                @data-engineer
+/src/api/            @backend-lead
+/src/ui/             @analytics-lead
+/notebooks/          @data-engineer
+
+# CI/CD and project configuration requires review
+/.github/            @randaldrew
+/Makefile            @randaldrew

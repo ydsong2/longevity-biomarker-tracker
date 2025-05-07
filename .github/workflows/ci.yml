@@ -19,7 +19,7 @@ jobs:
           MYSQL_USER: test_user
           MYSQL_PASSWORD: test_password
         ports:
-          - 3306:3306
+          - 3307:3306  # Changed from 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
@@ -61,7 +61,9 @@ jobs:
         nohup python -m uvicorn main:app --host 127.0.0.1 --port 8000 > api.log 2>&1 &
         echo $! > api.pid
         # Give the server a moment to start
-        sleep 5
+        sleep 2
+        # Health check to ensure the API is running
+        curl --retry 10 --retry-delay 1 --retry-connrefused http://127.0.0.1:8000/ -f
         cd ../..  # Return to root directory
 
     - name: Run tests
