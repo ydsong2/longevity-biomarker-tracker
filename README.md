@@ -30,6 +30,11 @@ The initial database schema is loaded automatically when the database container 
    ```
 3. Or use this shortcut ```make db-reset```
 
+## Notes
+
+- The ETL process (`make etl`) will generate a `tests/sample_dump.sql` file with sample data for testing purposes.
+- This sample data is used by the CI workflow to test the API functionality.
+
 ## Development Workflow
 
 ### Pre-commit Hooks

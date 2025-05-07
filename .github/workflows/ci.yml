@@ -52,8 +52,8 @@ jobs:
     - name: Check schema integrity
       run: |
         mysqldump -h 127.0.0.1 -u root -prootpassword --no-data longevity_test > tests/schema_from_db.sql
-        # Compare schema files (ignoring comments and whitespace)
-        diff -w <(grep -v "^--" sql/schema.sql | grep -v "^$") <(grep -v "^--" tests/schema_from_db.sql | grep -v "^$") || { echo "Schema files don't match!"; exit 1; }
+        # Compare schema files (ignoring comments, whitespace, and normalizing multiple spaces)
+        diff -w <(grep -v "^--" sql/schema.sql | grep -v "^$" | tr -s ' \t') <(grep -v "^--" tests/schema_from_db.sql | grep -v "^$" | tr -s ' \t') || { echo "Schema files don't match!"; exit 1; }
 
     - name: Start API server for testing
       run: |

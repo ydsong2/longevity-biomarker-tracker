@@ -1,7 +1,7 @@
 #!/bin/bash
 # create_snapshot.sh - Creates a snapshot of the codebase while excluding large files
 
-OUTPUT_FILE="codebase_snapshot_$(date +%Y%m%d).txt"
+OUTPUT_FILE="codebase_snapshot.txt"
 
 # Clear output file if it exists
 > "$OUTPUT_FILE"

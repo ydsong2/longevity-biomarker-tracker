@@ -6,13 +6,6 @@ import os
 import pymysql
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
-import pathlib
-import sys
-
-# --- make project root importable ---
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
-# ------------------------------------
 from src.api.main import app
 
 

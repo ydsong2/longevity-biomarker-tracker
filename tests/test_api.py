@@ -1,7 +1,7 @@
 """Test harness for API."""
 
 
-def test_api_toot(api_client):
+def test_api_root(api_client):
     """Testing API for response"""
     response = api_client.get("/")
     assert response.status_code == 200
