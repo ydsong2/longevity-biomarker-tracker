@@ -43,15 +43,15 @@ jobs:
 
     - name: Initialize test database
       run: |
-        mysql -h 127.0.0.1 -u root -prootpassword -e "CREATE DATABASE IF NOT EXISTS longevity_test;"
-        mysql -h 127.0.0.1 -u root -prootpassword longevity_test < sql/schema.sql
+        mysql -h 127.0.0.1 -P 3307 -u root -prootpassword -e "CREATE DATABASE IF NOT EXISTS longevity_test;"
+        mysql -h 127.0.0.1 -P 3307 -u root -prootpassword longevity_test < sql/schema.sql
         if [ -f tests/sample_dump.sql ]; then
-          mysql -h 127.0.0.1 -u root -prootpassword longevity_test < tests/sample_dump.sql
+          mysql -h 127.0.0.1 -P 3307 -u root -prootpassword longevity_test < tests/sample_dump.sql
         fi
 
     - name: Check schema integrity
       run: |
-        mysqldump -h 127.0.0.1 -u root -prootpassword --no-data longevity_test > tests/schema_from_db.sql
+        mysqldump -h 127.0.0.1 -P 3307 -u root -prootpassword --no-data longevity_test > tests/schema_from_db.sql
         # Compare schema files (ignoring comments, whitespace, and normalizing multiple spaces)
         clean_sql () { grep -v "^--" "$1" | sed -E 's/ AUTO_INCREMENT=[0-9]+//' | tr -s ' \t'; }
         diff -w <(clean_sql sql/schema.sql) <(clean_sql tests/schema_from_db.sql)
@@ -75,6 +75,7 @@ jobs:
         MYSQL_USER: test_user
         MYSQL_PASSWORD: test_password
         MYSQL_DATABASE: longevity_test
+        MYSQL_PORT: 3307
         API_URL: http://127.0.0.1:8000
 
     - name: Stop API server
