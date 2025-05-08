@@ -30,8 +30,11 @@ test:
 	pytest tests/
 
 run:
-    # pass shell env straight through
-    cd src/api && uvicorn main:app --reload --host $$APP_API_HOST --port $$APP_API_PORT
+-    # pass shell env straight through
+-    cd src/api && uvicorn main:app --reload --host $$APP_API_HOST --port $$APP_API_PORT
++	# pass shell env straight through          ← this leading char is a TAB
++	cd src/api && uvicorn main:app --reload --host $$APP_API_HOST --port $$APP_API_PORT
+
 
 
 ui:
