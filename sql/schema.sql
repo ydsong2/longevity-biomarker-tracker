@@ -105,7 +105,6 @@ CREATE TABLE BiologicalAgeResult (
 );
 
 -- Insert the nine biomarkers needed for Phenotypic Age calculation
-INSERT INTO Biomarker (Name, NHANESVarCode, Units, Description) VALUES
 ('Albumin', 'LBXSAL', 'g/dL', 'Serum albumin'),
 ('Alkaline Phosphatase', 'LBXSAPSI', 'U/L', 'Alkaline phosphatase'),
 ('Creatinine', 'LBXSCR', 'mg/dL', 'Serum creatinine'),
@@ -117,14 +116,12 @@ INSERT INTO Biomarker (Name, NHANESVarCode, Units, Description) VALUES
 ('Red Cell Distribution Width', 'LBXRDW', '%', 'Red cell distribution width');
 
 -- Insert the Phenotypic Age model
-INSERT INTO BiologicalAgeModel (ModelName, Description, FormulaJSON) VALUES (
     'Phenotypic Age',
     'Morgan Levine''s Phenotypic Age clock (Levine et al., 2018)',
     '{"formula": "141.50 + ln(-0.00553*xb)*(-26.42)", "intercept": 141.50, "multiplier": -26.42, "internal_parameter": -0.00553}'
 );
 
 -- Insert the coefficients for the Phenotypic Age model
-INSERT INTO ModelUsesBiomarker (ModelID, BiomarkerID, Coefficient, Transform) VALUES
 (1, 1, -0.0336, 'none'),       -- Albumin
 (1, 2, 0.0010, 'none'),        -- Alkaline Phosphatase
 (1, 3, 0.0095, 'none'),        -- Creatinine
