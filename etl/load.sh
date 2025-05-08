@@ -32,27 +32,26 @@ mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
 
 "
 
-# Load Sessions
 echo "Loading MeasurementSessions..."
 mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
     LOAD DATA LOCAL INFILE 'data/clean/sessions.csv'
--    INTO TABLE MeasurementSession
- ...
--    (SessionID, UserID, SessionDate, FastingStatus);
-+    (UserID, SessionDate, FastingStatus);
-
+    INTO TABLE MeasurementSession
+    FIELDS TERMINATED BY ',' ENCLOSED BY '\"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS
+    (UserID, SessionDate, FastingStatus);
 "
 
-# Load Measurements
 echo "Loading Measurements..."
 mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
     LOAD DATA LOCAL INFILE 'data/clean/measurements.csv'
--    INTO TABLE Measurement
- ...
--    (MeasurementID, SessionID, BiomarkerID, Value, TakenAt);
-+    (SessionID, BiomarkerID, Value, TakenAt);
-
+    INTO TABLE Measurement
+    FIELDS TERMINATED BY ',' ENCLOSED BY '\"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 ROWS
+    (SessionID, BiomarkerID, Value, TakenAt);
 "
+
 
 # Load Reference Ranges
 echo "Loading Reference Ranges..."
@@ -72,14 +71,12 @@ echo "Data loading completed successfully!"
 
 # Create sample dump for testing
 echo "Creating sample dump for testing..."
--mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE \
--  User MeasurementSession Measurement \
--  --where="User.UserID IN (SELECT UserID FROM User ORDER BY UserID LIMIT 10)" \
--  > tests/sample_dump.sql
-+mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE \
-+  User MeasurementSession Measurement \
-+  --where="User.CreatedAt >= (SELECT MIN(CreatedAt) \
-+                              FROM (SELECT CreatedAt FROM User ORDER BY CreatedAt LIMIT 10) AS t)" \
-+  > tests/sample_dump.sql
+mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE \
+  User MeasurementSession Measurement \
+  --where="User.CreatedAt >= (SELECT CreatedAt
+                              FROM User
+                              ORDER BY CreatedAt
+                              LIMIT 1 OFFSET 0)" \
+  > tests/sample_dump.sql
 
 echo "ETL process completed!"

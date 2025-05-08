@@ -12,7 +12,6 @@ git clone … && cd longevity-biomarker-tracker
 cp .env.example .env
 make install          # python deps + pre-commit
 make db               # starts MySQL + Adminer on :3307
-source .env           # export APP_API_* vars  ← **don’t forget**
 make run              # FastAPI on :8000
 make ui               # Do this in a new terminal.  Streamlit on :8501 (hit Enter at e-mail prompt)
 # ETL is optional until the transform notebook is finished

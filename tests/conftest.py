@@ -49,7 +49,7 @@ def db_cursor(db_connection):
 
 @pytest.fixture(scope="session", autouse=True)
 def ensure_demo_user(db_cursor):
-    db_cursor.execute("SELECT COUNT(*) AS c FROM User WHERE UserID = 1")
+    db_cursor.execute("SELECT COUNT(*) AS c FROM User")
     if db_cursor.fetchone()["c"] == 0:
         db_cursor.execute(
             "INSERT INTO User (SEQN, BirthDate, Sex, RaceEthnicity) "
