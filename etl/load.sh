@@ -71,6 +71,14 @@ echo "Data loading completed successfully!"
 
 # Create sample dump for testing
 echo "Creating sample dump for testing..."
-mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE User MeasurementSession Measurement --where="User.UserID IN (SELECT UserID FROM User ORDER BY UserID LIMIT 10)" > tests/sample_dump.sql
+-mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE \
+-  User MeasurementSession Measurement \
+-  --where="User.UserID IN (SELECT UserID FROM User ORDER BY UserID LIMIT 10)" \
+-  > tests/sample_dump.sql
++mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE \
++  User MeasurementSession Measurement \
++  --where="User.CreatedAt >= (SELECT MIN(CreatedAt) \
++                              FROM (SELECT CreatedAt FROM User ORDER BY CreatedAt LIMIT 10) AS t)" \
++  > tests/sample_dump.sql
 
 echo "ETL process completed!"
