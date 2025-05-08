@@ -35,12 +35,11 @@ mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
 echo "Loading MeasurementSessions..."
 mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
     LOAD DATA LOCAL INFILE 'data/clean/sessions.csv'
-    INTO TABLE MeasurementSession
-    FIELDS TERMINATED BY ','
-    ENCLOSED BY '\"'
-    LINES TERMINATED BY '\n'
-    IGNORE 1 ROWS
-    (SessionID, UserID, SessionDate, FastingStatus);
+-    INTO TABLE MeasurementSession
+ ...
+-    (SessionID, UserID, SessionDate, FastingStatus);
++    (UserID, SessionDate, FastingStatus);
+
 "
 
 # Load Measurements
