@@ -46,12 +46,11 @@ mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
 echo "Loading Measurements..."
 mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
     LOAD DATA LOCAL INFILE 'data/clean/measurements.csv'
-    INTO TABLE Measurement
-    FIELDS TERMINATED BY ','
-    ENCLOSED BY '\"'
-    LINES TERMINATED BY '\n'
-    IGNORE 1 ROWS
-    (MeasurementID, SessionID, BiomarkerID, Value, TakenAt);
+-    INTO TABLE Measurement
+ ...
+-    (MeasurementID, SessionID, BiomarkerID, Value, TakenAt);
++    (SessionID, BiomarkerID, Value, TakenAt);
+
 "
 
 # Load Reference Ranges
