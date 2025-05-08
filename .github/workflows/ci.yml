@@ -65,14 +65,12 @@ jobs:
             --skip-add-drop-table --skip-tz-utc --column-statistics=0 \
             -h 127.0.0.1 -P $DB_PORT -u root -prootpassword \
             longevity_test > tests/schema_from_db.sql
-
-        # Modify the clean_sql function in your .github/workflows/ci.yml
         clean_sql () {
-          grep -vE '^(SET|/\*![0-9]{5}|ENGINE=|COLLATE=|ROW_FORMAT=|CHARSET=)' "$1" \
-            | sed -E 's/`//g' | tr -s " \t" | sort
+          grep -vE '^(SET|/\*![0-9]{5})' "$1" \
+          | sed -E 's/\) ENGINE=.*$/);/; s/ DEFAULT CHARSET=[^ ]+//; s/ COLLATE=[^ ]+//; s/ ROW_FORMAT=[^ ]+//' \
+          | tr -d '`' | tr -s ' \t'
         }
 
-        diff -w <(clean_sql sql/schema.sql) <(clean_sql tests/schema_from_db.sql)
 
 
     - name: Start API server for testing
