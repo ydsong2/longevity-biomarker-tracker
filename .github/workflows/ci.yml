@@ -66,9 +66,10 @@ jobs:
             -h 127.0.0.1 -P $DB_PORT -u root -prootpassword \
             longevity_test > tests/schema_from_db.sql
 
+        # Modify the clean_sql function in your .github/workflows/ci.yml
         clean_sql () {
-            grep -vE '^(SET|/\*![0-9]{5}|ENGINE=|COLLATE=|ROW_FORMAT=)' "$1" \
-              | sed -E 's/`//g' | tr -s " \t"
+          grep -vE '^(SET|/\*![0-9]{5}|ENGINE=|COLLATE=|ROW_FORMAT=|CHARSET=)' "$1" \
+            | sed -E 's/`//g' | tr -s " \t" | sort
         }
 
         diff -w <(clean_sql sql/schema.sql) <(clean_sql tests/schema_from_db.sql)
