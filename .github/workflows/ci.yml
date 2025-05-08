@@ -52,11 +52,20 @@ jobs:
           mysql -h 127.0.0.1 -P $DB_PORT -u root -prootpassword longevity_test < tests/sample_dump.sql
         fi
 
+    # .github/workflows/ci.yml  – Check schema integrity step
+    # 1) drop MySQL-only comment lines and SET/ENGINE stuff
+    # 2) strip back-ticks and extra spaces
     - name: Check schema integrity
       run: |
-        mysqldump -h 127.0.0.1 -P $DB_PORT -u root -prootpassword --no-data longevity_test > tests/schema_from_db.sql
-        # Compare schema files (ignoring comments, whitespace, and normalizing multiple spaces)
-        clean_sql () { grep -v "^--" "$1" | sed -E 's/ AUTO_INCREMENT=[0-9]+//' | tr -s ' \t'; }
+        mysqldump \
+            --no-data --compact --skip-comments --skip-set-charset \
+            --skip-add-drop-table --skip-tz-utc --column-statistics=0 \
+            -h 127.0.0.1 -P $DB_PORT -u root -prootpassword \
+            longevity_test > tests/schema_from_db.sql
+        clean_sql () {
+            grep -vE '^(SET|/\*![0-9]{5}|ENGINE=|COLLATE=|ROW_FORMAT=)' "$1" |
+            sed -E 's/`//g' | tr -s " \t"
+        }
         diff -w <(clean_sql sql/schema.sql) <(clean_sql tests/schema_from_db.sql)
 
     - name: Start API server for testing
