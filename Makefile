@@ -47,5 +47,7 @@ clean:
 	rm -rf data/raw/* data/clean/*
 
 db-reset:
-	docker compose exec db mysql -u$(MYSQL_USER) -p$(MYSQL_PASSWORD) $(MYSQL_DATABASE) < sql/schema.sql && \
-	docker compose exec db mysql -u$(MYSQL_USER) -p$(MYSQL_PASSWORD) $(MYSQL_DATABASE) < sql/01_seed.sql
+	docker compose exec db mysql -u$(MYSQL_USER) -p$(MYSQL_PASSWORD) \
+      $(MYSQL_DATABASE) < sql/schema.sql && \
+	docker compose exec db mysql -u$(MYSQL_USER) -p$(MYSQL_PASSWORD) \
+      $(MYSQL_DATABASE) < sql/01_seed.sql

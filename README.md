@@ -17,7 +17,6 @@ make db               # starts MySQL + Adminer on :3307
 make run              # FastAPI on :8000
 make ui               # Do this in a new terminal.  Streamlit on :8501 (hit Enter at e-mail prompt)
 # ETL is optional until the transform notebook is finished
-
 ```
 
 ## Database Schema Updates
@@ -48,3 +47,4 @@ make install  # or manually: pip install pre-commit
 
 # Install the git hooks
 pre-commit install
+```
