@@ -53,7 +53,8 @@ jobs:
       run: |
         mysqldump -h 127.0.0.1 -u root -prootpassword --no-data longevity_test > tests/schema_from_db.sql
         # Compare schema files (ignoring comments, whitespace, and normalizing multiple spaces)
-        diff -w <(grep -v "^--" sql/schema.sql | grep -v "^$" | tr -s ' \t') <(grep -v "^--" tests/schema_from_db.sql | grep -v "^$" | tr -s ' \t') || { echo "Schema files don't match!"; exit 1; }
+        clean_sql () { grep -v "^--" "$1" | sed -E 's/ AUTO_INCREMENT=[0-9]+//' | tr -s ' \t'; }
+        diff -w <(clean_sql sql/schema.sql) <(clean_sql tests/schema_from_db.sql)
 
     - name: Start API server for testing
       run: |

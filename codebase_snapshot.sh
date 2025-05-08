@@ -111,7 +111,12 @@ find . -type f \( -name "*.py" -o -name "*.ipynb" -o -name "*.md" -o -name "*.sh
         echo "FILE: $file (code cells only, outputs excluded)" >> "$OUTPUT_FILE"
         echo "==================================================" >> "$OUTPUT_FILE"
         echo "" >> "$OUTPUT_FILE"
-        jq 'del(.cells[].outputs) | del(.cells[].execution_count)' "$file" >> "$OUTPUT_FILE" 2>/dev/null || echo "Could not process notebook file (jq may not be installed)" >> "$OUTPUT_FILE"
+        if command -v jq >/dev/null 2>&1; then
+          jq 'del(.cells[].outputs) | del(.cells[].execution_count)' "$file" >> "$OUTPUT_FILE"
+        else
+          echo "[WARN] jq not found – skipping notebook sanitisation" >> "$OUTPUT_FILE"
+        fi
+
       else
         write_file "$file"
       fi

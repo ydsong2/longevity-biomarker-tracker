@@ -28,7 +28,8 @@ mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
     ENCLOSED BY '\"'
     LINES TERMINATED BY '\n'
     IGNORE 1 ROWS
-    (UserID, SEQN, BirthDate, Sex, RaceEthnicity);
+    (SEQN, BirthDate, Sex, RaceEthnicity);
+
 "
 
 # Load Sessions
