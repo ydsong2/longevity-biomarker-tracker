@@ -53,30 +53,52 @@ mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
 "
 
 
-# Load Reference Ranges
-echo "Loading Reference Ranges..."
-mysql -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "
-    LOAD DATA LOCAL INFILE 'data/clean/reference_ranges.csv'
-    FIELDS TERMINATED BY ','
-    ENCLOSED BY '\"'
-    LINES TERMINATED BY '\n'
-    IGNORE 1 ROWS
-    (RangeID, BiomarkerID, RangeType, Sex, @AgeMin, @AgeMax, MinVal, MaxVal)
-    SET
-    AgeMin = NULLIF(@AgeMin,''),
-    AgeMax = NULLIF(@AgeMax,'');
-"
-
-echo "Data loading completed successfully!"
-
-# Create sample dump for testing
+# ------------------------------------------------------------------
+# 👇 Sample dump for the CI suite (small but relationally consistent)
+# ------------------------------------------------------------------
 echo "Creating sample dump for testing..."
+
+# 1) Dump 10 most-recent users
 mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE \
-  User MeasurementSession Measurement \
-  --where="User.CreatedAt >= (SELECT CreatedAt
-                              FROM User
-                              ORDER BY CreatedAt
-                              LIMIT 1 OFFSET 0)" \
+  User \
+  --where="UserID IN (SELECT u.UserID
+                       FROM (SELECT UserID
+                               FROM User
+                              ORDER BY CreatedAt DESC
+                              LIMIT 10) AS u)" \
+  --skip-add-drop-table \
+  --skip-lock-tables \
   > tests/sample_dump.sql
 
-echo "ETL process completed!"
+# 2) Dump every session that belongs to those users
+mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE \
+  MeasurementSession \
+  --where="UserID IN (SELECT u.UserID
+                       FROM (SELECT UserID
+                               FROM User
+                              ORDER BY CreatedAt DESC
+                              LIMIT 10) AS u)" \
+  --no-create-info \
+  --skip-add-drop-table \
+  --skip-lock-tables \
+  >> tests/sample_dump.sql
+
+# 3) Dump every measurement that belongs to those sessions
+mysqldump -h localhost -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE \
+  Measurement \
+  --where="SessionID IN (SELECT s.SessionID
+                          FROM (SELECT SessionID
+                                  FROM MeasurementSession
+                                 WHERE UserID IN (SELECT UserID
+                                                    FROM User
+                                                   ORDER BY CreatedAt DESC
+                                                   LIMIT 10)) AS s)" \
+  --no-create-info \
+  --skip-add-drop-table \
+  --skip-lock-tables \
+  >> tests/sample_dump.sql
+
+echo "Sample dump written to tests/sample_dump.sql"
+
+
+echo "Data loading completed successfully!"

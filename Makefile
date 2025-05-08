@@ -29,9 +29,13 @@ etl:
 test:
 	pytest tests/
 
-run:
-	# pass shell env straight through          ← this leading char is a TAB
-	cd src/api && uvicorn main:app --reload --host $$APP_API_HOST --port $$APP_API_PORT
+run:                           # start FastAPI with hot-reload
+	# use env vars if they exist, else fall back to 127.0.0.1:8000
+	cd src/api && \
+		uvicorn main:app --reload \
+		--host $${APP_API_HOST:-127.0.0.1} \
+		--port $${APP_API_PORT:-8000}
+
 
 
 

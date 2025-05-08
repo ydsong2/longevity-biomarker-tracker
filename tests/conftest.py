@@ -31,7 +31,7 @@ def api_client():
         yield client
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def db_connection():
     """Fixture to create a database connection for tests."""
     connection = pymysql.connect(**DB_CONFIG)
@@ -39,7 +39,8 @@ def db_connection():
     connection.close()
 
 
-@pytest.fixture
+# Make cursor session-scoped so a session-scoped fixture can depend on it
+@pytest.fixture(scope="session")
 def db_cursor(db_connection):
     """Fixture to create a database cursor for tests."""
     cursor = db_connection.cursor()
