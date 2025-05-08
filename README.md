@@ -1,5 +1,7 @@
 # Longevity Biomarker Tracking System
 
+[![CI](https://github.com/randaldrew/longevity-biomarker-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/randaldrew/longevity-biomarker-tracker/actions/workflows/ci.yml)
+
 Database system for tracking biomarkers and calculating biological age based on NHANES data.
 
 ## Quick Start
