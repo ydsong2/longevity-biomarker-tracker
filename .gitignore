@@ -32,7 +32,6 @@ data/clean/*
 !data/raw/.gitkeep
 !data/clean/.gitkeep
 codebase_snapshot.txt
-codebase_snapshot.sh
 
 # IDEs and editors
 .idea/
@@ -46,3 +45,6 @@ Thumbs.db
 
 # Node modules (for UI)
 node_modules/
+
+# Additional
+db_setup_summary.json
