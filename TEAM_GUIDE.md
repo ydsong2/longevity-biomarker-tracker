@@ -304,13 +304,12 @@ See `docs/sqlfluff_status.md` for details and workarounds.
 
 ### 📚 **Biological Age Models**
 - **Phenotypic Age:** Levine et al. (2018) - [PMID: 29676998](https://pubmed.ncbi.nlm.nih.gov/29676998/)
-- **Homeostatic Dysregulation:**
-  - Cohen et al. (2013) - [PMC3964022](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3964022/)
-  - Belsky et al. (2015) - [PMC4693454](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4693454/)
+- **Homeostatic Dysregulation:** 
+  - Cohen et al. (2013) - [PMID: 23376244](https://pubmed.ncbi.nlm.nih.gov/23376244/)
+  - Belsky et al. (2015) - [PMID: 26150497](https://pubmed.ncbi.nlm.nih.gov/26150497/) • [PMC4522793](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4522793/)
 
 ### 🧪 **Data Source**
 - **NHANES 2017-2018:** [CDC National Health and Nutrition Examination Survey](https://www.cdc.gov/nchs/nhanes/index.html)
-
 
 ---
 
