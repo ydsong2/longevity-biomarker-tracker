@@ -5,7 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException, Body, status
 from fastapi.middleware.cors import CORSMiddleware
 import math
 import os
-
+import re
 import pandas as pd
 import pymysql
 import sys
@@ -31,13 +31,22 @@ app = FastAPI(
     description="API for tracking biomarkers and calculating biological age",
 )
 
+# RD final review: CORS fix with ReGeX
+CORS_ORIGIN_REGEX = r"^https?://(localhost|\[::1\]|\d{1,3}(?:\.\d{1,3}){3})(:\d+)?$"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost", "http://localhost:3000"],
+    allow_origin_regex=CORS_ORIGIN_REGEX,  # ← String, not .pattern
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# RD: Need to explicitly handle OPTIONS method in FastAPI
+@app.options("/api/v1/users")
+def options_users():
+    return {"message": "OK"}
 
 
 hd_model = None
@@ -87,10 +96,10 @@ def startup():
         reference_df["Value"] = reference_df["Value"].astype(float)
         reference_df["BMI"] = reference_df["BMI"].astype(float)
 
-        # Unit conversion: mg/dL → mmol/L
+        # Unit conversion: mg/dL → mmol/L - RD: Small fix to resolve Pandas warning in API
         glucose_mask = reference_df["BiomarkerID"] == 4
-        reference_df["Value"].loc[glucose_mask] = (
-            reference_df["Value"].loc[glucose_mask] / 18
+        reference_df.loc[glucose_mask, "Value"] = (
+            reference_df.loc[glucose_mask, "Value"] / 18
         )
         biomarker_columns = reference_df["BiomarkerName"].unique()
 
@@ -107,6 +116,15 @@ def startup():
         print(
             f"HD reference population: {len(reference_df)} people with complete biomarker data"
         )
+
+        # RD 5-27 final review: Guard against empty reference population
+        if len(reference_df) < 20:
+            print(
+                f"[WARNING] HD reference population too small ({len(reference_df)} < 20). HD model disabled."
+            )
+            hd_model = None
+            return
+
         hd_model = HomeostasisDysregulation()
         hd_model.fit_reference_population(reference_df, biomarker_columns, "Age")
 
@@ -117,6 +135,7 @@ def startup():
         connection.close()
 
 
+# RD 5-27 final review: fixed potential connection leak
 def get_db():
     """Yield a PyMySQL connection and close it after"""
     connection = pymysql.connect(
@@ -131,6 +150,10 @@ def get_db():
     try:
         yield connection
     finally:
+        try:
+            connection.rollback()  # Rollback any uncommitted transactions
+        except Exception:
+            pass  # Connection might already be closed
         connection.close()
 
 
@@ -312,9 +335,7 @@ def calculate_biological_age(
                         linear_term += biomarker_value * float(
                             coefficient["coefficient"]
                         )
-                    mortality_score = (
-                        linear_term + math.log(chronological_age) * 0.0804 - 19.9067
-                    )
+                    mortality_score = linear_term + chronological_age * 0.0804 - 19.9067
                     R = min(0.999999, 1 - math.exp(-math.exp(mortality_score)))
                     phenotypic_age = round(
                         141.50 + math.log(-math.log(1 - R)) / 0.09165, 2
@@ -512,15 +533,18 @@ def biomarker_trends(
     db=Depends(get_db),
 ):
     """Query 6: Show historical values for specific biomarker over time"""
-    # ----  parse input to calculate upto when the Biomarker should be queried -----------------------------------------
+    # ----  parse input to calculate upto when the Biomarker should be queried --------------------------
     range = range.strip()
-    number, text = "", ""
-    for letter in range:
-        if letter.isdigit():
-            number += letter
-        else:
-            text += letter
-    number, text = int(number.strip()), text.strip("s ").lower()
+
+    # RD 5-27 Fix: More flexible parsing: "6 months", "6months", "6 month" all work
+    match = re.match(r"^(\d+)\s*(day|week|month|year)s?$", range.lower())
+    if not match:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Range must be in format: '<number> <days|weeks|months|years>' (e.g., '6 months')",
+        )
+
+    number, text = int(match.group(1)), match.group(2)
     years, months, weeks, days = 0, 0, 0, 0
     if text in {"day", "d"}:
         days = number
@@ -719,7 +743,9 @@ def get_biomarkers_with_counts(db=Depends(get_db)):
 
 
 # ---------------------------------------------------------------------
-# Test stub endpoints for pytest
+# Legacy test stub endpoints - DO NOT USE IN PRODUCTION
+# These exist only for backward compatibility with existing tests
+# Real API endpoints use /api/v1/ prefix
 # ---------------------------------------------------------------------
 @app.get("/users/{user_id}")
 def read_user(user_id: int):
