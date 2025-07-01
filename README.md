@@ -3,6 +3,7 @@
 [![CI](https://github.com/randaldrew/longevity-biomarker-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/randaldrew/longevity-biomarker-tracker/actions/workflows/ci.yml)
 
 Database system for tracking biomarkers and calculating biological age based on NHANES data.
+
 NOT for medical diagnostic purposes.
 
 ## Quick Start
@@ -35,6 +36,7 @@ The initial database schema is loaded automatically when the database container 
 
 - The ETL process (`make etl`) will generate a `tests/sample_dump.sql` file with sample data for testing purposes.
 - This sample data is used by the CI workflow to test the API functionality.
+- NOT for medical diagnostic purposes.
 
 ## Development Workflow
 
